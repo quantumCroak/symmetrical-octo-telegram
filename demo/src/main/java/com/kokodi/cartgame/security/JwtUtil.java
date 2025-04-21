@@ -1,27 +1,27 @@
 package com.kokodi.cartgame.security;
 
-import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import com.kokodi.cartgame.model.User;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtException;
+
 
 import java.util.Date;
+import java.util.HashMap;
+
+import static javax.crypto.Cipher.SECRET_KEY;
 
 public class JwtUtil {
-    private static final String SECRET = "mySecretKey";
-    private static final long EXPIRATION_TIME = 864_000_000;
+    private static final String SECRET = "mySecretKey1234567890"; // Длинный секретный ключ
+    private static final long EXPIRATION_TIME = 864_000_000; // 10 дней
 
-    public static String generateToken(String username) {
+    public static String generateToken(String login) {
         return Jwts.builder()
-                .setSubject(username)
+                .setClaims(new HashMap<>())
+                .setSubject(login)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(SignatureAlgorithm.ES256, SECRET)
+                .signWith(SignatureAlgorithm.HS256, SECRET)
                 .compact();
-    }
-
-    public static String getUsernameFromToken(String token) {
-        return Jwts.parser()
-                .setSigningKey(SECRET)
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
     }
 }

@@ -1,7 +1,12 @@
 package com.kokodi.cartgame.service;
 
-import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
+import com.kokodi.cartgame.model.User;
+import com.kokodi.cartgame.model.dto.register.RegisterRequest;
+import com.kokodi.cartgame.util.exception.NotUniqueException;
+import com.kokodi.cartgame.util.exception.RegisterUserException;
 
 public interface UserService {
-    public AuthenticationResponse save(RegisterRequest request) throws RegisterUserException;
+    User save(RegisterRequest request) throws RegisterUserException, NotUniqueException;
+
+    User findByLogin(String login);
 }

@@ -16,17 +16,27 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CartdsGetDTO {
-    List<Cartds> usedCartds;
-    List<Cartds> unusedCartds;
-    Cartds cart;
-    List<UserGetDTO> users;
-    String cardType;
-    Integer actionCardId;
-    Set<TypesActionCartds> actionCards;
-    Integer pointsCardId;
-    Integer cartId;
-    Integer value;
-    String cartName;
-    Integer quantity;
-    List<UUID> userIds;
+    private String cardType;
+    private Integer cartId;
+    private Integer value;
+    private String cartName;
+    private Integer quantity;
+    private Integer actionCardId;
+    private Set<TypesActionCartds> actionCards;
+    private Integer pointsCardId;
+    private List<UUID> userIds;
+
+//    List<Cartds> usedCartds;
+//    List<Cartds> unusedCartds;
+//    Cartds cart;
+//    List<UserGetDTO> users;
+//    String cardType;
+//    Integer actionCardId;
+//    Set<TypesActionCartds> actionCards;
+//    Integer pointsCardId;
+//    Integer cartId;
+//    Integer value;
+//    String cartName;
+//    Integer quantity;
+//    List<UUID> userIds;
 }

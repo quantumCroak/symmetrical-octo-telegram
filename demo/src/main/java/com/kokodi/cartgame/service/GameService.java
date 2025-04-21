@@ -16,6 +16,8 @@ public interface GameService {
 
     GameSessionGetDTO getGameSession(UUID sessionId, String username);
 
+    GameSessionGetDTO makeTurn(UUID sessionId, UUID userId, UUID targetUserId);
+
     void finishGameSession(UUID sessionId, UserGetDTO user);
 
     GameSessionGetDTO getGameStatus(UUID sessionId) throws IllegalStateException;

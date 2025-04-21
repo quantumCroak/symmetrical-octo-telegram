@@ -3,12 +3,20 @@ package com.kokodi.cartgame.model;
 import com.kokodi.cartgame.model.enums.StatusSessionGame;
 import com.kokodi.cartgame.model.enums.TypesActionCartds;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,59 +33,46 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(name = "game_sessions")
 public class GameSession {
     @Id
     @GeneratedValue
+    @Column(name = "game_session_id")
     UUID gameSessionId;
+
     @ManyToMany
+    @JoinTable(
+            name = "game_session_users",
+            joinColumns = @JoinColumn(name = "game_session_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
     List<User> users;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_session_game")
     StatusSessionGame statusSessionGame;
-    @ElementCollection
-    @OneToMany(cascade = CascadeType.ALL)
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "game_session_id")
     List<Turns> turns = new ArrayList<>();
+
     @ElementCollection
-    Map<Integer, Integer> playerScores;
+    @CollectionTable(name = "player_scores", joinColumns = @JoinColumn(name = "game_session_id"))
+    @MapKeyColumn(name = "user_id")
+    @Column(name = "score")
+    Map<UUID, Integer> playerScores;
+
+    @Column(name = "skip_turns")
     Integer skipTurns;
+
     @ManyToMany
+    @JoinTable(
+            name = "game_session_deck",
+            joinColumns = @JoinColumn(name = "game_session_id"),
+            inverseJoinColumns = @JoinColumn(name = "card_id")
+    )
     List<Cartds> deck = new ArrayList<>();
+
+    @Column(name = "current_player_index")
     int currentPlayerIndex;
-    static Map<UUID, Boolean> defenseStatus = new HashMap<>();
-    static Map<TypesActionCartds, Integer> bannedCards = new HashMap<>();
-    static List<UUID> extraTurns = new ArrayList<>();
-
-    public static boolean isDefended(UUID userId) {
-        return defenseStatus.getOrDefault(userId, false);
-    }
-
-    public static void activateDefense(UUID userId) {
-        defenseStatus.put(userId, true);
-    }
-
-    public static void deactivateDefense(UUID userId) {
-        defenseStatus.put(userId, false);
-    }
-
-    public static void banCardType(TypesActionCartds type, int turns) {
-        bannedCards.put(type, turns);
-    }
-
-    public static boolean isCardTypeBanned(TypesActionCartds type) {
-        return bannedCards.getOrDefault(type, 0) > 0;
-    }
-
-    public static void decrementBanTurns() {
-        bannedCards.replaceAll((type, turns) -> turns > 0 ? turns - 1 : 0);
-    }
-
-    public static void setExtraTurnForPlayer(UUID userId) {
-        extraTurns.add(userId);
-    }
-
-    public static boolean hasExtraTurn(UUID userId) {
-        if (extraTurns.contains(userId)) {
-            extraTurns.remove(userId);
-            return true;
-        }
-        return false;
-    }
 }

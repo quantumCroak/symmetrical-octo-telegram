@@ -18,47 +18,47 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring")
 public interface GameSessionMapper {
 
-    @Mapping(target = "statusSessionGame", source = "statusSessionGame")
-    @Mapping(target = "users", source = "users", qualifiedByName = "mapUsersToUserGetDTOs")
-    @Mapping(target = "deck", source = "deck", qualifiedByName = "mapDeckToDTOList")
+//    @Mapping(target = "statusSessionGame", source = "statusSessionGame")
+//    @Mapping(target = "users", source = "users", qualifiedByName = "mapUsersToUserGetDTOs")
+//    @Mapping(target = "deck", source = "deck", qualifiedByName = "mapDeckToDTOList")
     GameSessionCreateDTO toGetDTOFromCreate(GameSession gameSession);
 
-    @Mapping(target = "statusSessionGame", source = "statusSessionGame")
-    @Mapping(target = "users", source = "users", qualifiedByName = "mapUsersToUserGetDTOs")
-    @Mapping(target = "deck", source = "deck", qualifiedByName = "mapDeckToDTOList")
+//    @Mapping(target = "statusSessionGame", source = "statusSessionGame")
+//    @Mapping(target = "users", source = "users", qualifiedByName = "mapUsersToUserGetDTOs")
+//    @Mapping(target = "deck", source = "deck", qualifiedByName = "mapDeckToDTOList")
     GameSessionGetDTO toGetDTO(GameSession gameSession);
 
-    @Mapping(target = "gameSessionId", ignore = true)
-    @Mapping(target = "users", source = ".", qualifiedByName = "mapCreateDTOToUsers")
-    @Mapping(target = "statusSessionGame", source = "statusSessionGame")
-    @Mapping(target = "deck", ignore = true)
-    @Mapping(target = "turns", ignore = true)
-    @Mapping(target = "playerScores", ignore = true)
-    @Mapping(target = "skipTurns", ignore = true)
+//    @Mapping(target = "gameSessionId", ignore = true)
+//    @Mapping(target = "users", source = ".", qualifiedByName = "mapCreateDTOToUsers")
+//    @Mapping(target = "statusSessionGame", source = "statusSessionGame")
+//    @Mapping(target = "deck", ignore = true)
+//    @Mapping(target = "turns", ignore = true)
+//    @Mapping(target = "playerScores", ignore = true)
+//    @Mapping(target = "skipTurns", ignore = true)
     GameSession toEntity(GameSessionCreateDTO createDTO);
 
-    @Named("mapUsersToUserGetDTOs")
-    default List<UserGetDTO> mapUsersToUserGetDTOs(List<User> users) {
-        return users != null ? users.stream().map(user -> {
-            UserGetDTO dto = new UserGetDTO();
-            dto.setUserId(user.getUserId());
-            dto.setUsername(user.getName());
-            return dto;
-        }).collect(Collectors.toList()) : null;
-    }
+//    @Named("mapUsersToUserGetDTOs")
+//    default List<UserGetDTO> mapUsersToUserGetDTOs(List<User> users) {
+//        return users != null ? users.stream().map(user -> {
+//            UserGetDTO dto = new UserGetDTO();
+//            dto.setUserId(user.getUserId());
+//            dto.setUsername(user.getName());
+//            return dto;
+//        }).collect(Collectors.toList()) : null;
+//    }
 
-    @Named("mapDeckToDTOList")
-    default List<CartdsGetDTO> mapDeckToDTOList(List<Cartds> deck) {
-        if (deck == null) {
-            return null;
-        }
-        CartdsGetDTO dto = new CartdsGetDTO();
-        dto.setUnusedCartds(deck);
-        dto.setUsedCartds(new ArrayList<>());
-        dto.setUsers(new ArrayList<>());
-        dto.setCart(null);
-        return List.of(dto);
-    }
+//    @Named("mapDeckToDTOList")
+//    default List<CartdsGetDTO> mapDeckToDTOList(List<Cartds> deck) {
+//        if (deck == null) {
+//            return null;
+//        }
+//        CartdsGetDTO dto = new CartdsGetDTO();
+//        dto.setUnusedCartds(deck);
+//        dto.setUsedCartds(new ArrayList<>());
+//        dto.setUsers(new ArrayList<>());
+//        dto.setCart(null);
+//        return List.of(dto);
+//    }
 
 //    @Named("mapCreateDTOToUsers")
 //    default List<User> mapCreateDTOToUsers(GameSessionCreateDTO createDTO) {

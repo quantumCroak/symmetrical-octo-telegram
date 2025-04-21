@@ -14,119 +14,94 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
 import org.mapstruct.factory.Mappers;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring")
-public interface CartdsMapper {
-    CartdsMapper INSTANCE = Mappers.getMapper(CartdsMapper.class);
+public abstract class CartdsMapper {
+//
+//    @Named("mapIdsToUsers")
+//    public List<User> mapIdsToUsers(List<UUID> userIds) {
+//        if (userIds == null) {
+//            return null;
+//        }
+//        return userIds.stream().map(id -> {
+//            User user = new User();
+//            user.setUserId(id);
+//            return user;
+//        }).collect(Collectors.toList());
+//    }
 
-    @Mapping(target = "userIds", source = "users", qualifiedByName = "mapUsersToIds")
-    @Mapping(target = "cardType", expression = "java(cartds instanceof ActionCard ? \"action\" : \"points\")")
-    @Mapping(target = "actionCards", source = ".", qualifiedByName = "mapActionCards")
-    @Mapping(target = "actionCardId", source = ".", qualifiedByName = "mapActionCardId")
-    @Mapping(target = "pointsCardId", source = ".", qualifiedByName = "mapPointsCardId")
-    @Mapping(target = "usedCartds", ignore = true)
-    @Mapping(target = "unusedCartds", ignore = true)
-    @Mapping(target = "cart", ignore = true)
-    @Mapping(target = "users", source = "users", qualifiedByName = "mapUsersToUserGetDTOs")
-    CartdsGetDTO toDTO(Cartds cartds);
+//    @Named("mapUsersToUserGetDTOs")
+//    public List<UserGetDTO> mapUsersToUserGetDTOs(List<User> users) {
+//        if (users == null) {
+//            return null;
+//        }
+//        return users.stream().map(user -> {
+//            UserGetDTO dto = new UserGetDTO();
+//            dto.setUserId(user.getUserId());
+//            dto.setUsername(user.getName());
+//            return dto;
+//        }).collect(Collectors.toList());
+//    }
 
-    List<CartdsGetDTO> toDTOList(List<Cartds> cards);
+//    public CartdsGetDTO toCartdsGetDTO(Cartds card) {
+//        if (card == null) {
+//            return null;
+//        }
+//        CartdsGetDTO dto = new CartdsGetDTO();
+//        dto.setCartId(card.getCartId());
+//        dto.setValue(card.getValue());
+//        dto.setCartName(card.getCardName());
+//        dto.setQuantity(card.getQuantity());
+//        dto.setUserIds(card.getUsers() != null
+//                ? card.getUsers().stream().map(User::getUserId).collect(Collectors.toList())
+//                : new ArrayList<>());
+//
+//        if (card instanceof ActionCard actionCard) {
+//            dto.setCardType("ACTION");
+//            dto.setActionCardId(actionCard.getActionCardId());
+//            dto.setActionCards(actionCard.getActionCartds());
+//        } else if (card instanceof PointsCard pointsCard) {
+//            dto.setCardType("POINTS");
+//            dto.setPointsCardId(pointsCard.getPointsCardId());
+//        }
+//
+//        return dto;
+//    }
 
-    @Mapping(target = "users", source = "userIds", qualifiedByName = "mapIdsToUsers")
-    Cartds toEntity(CartdsGetDTO cardDTO);
+//    public Cartds toCartds(CartdsGetDTO cardDTO) {
+//        if (cardDTO == null) {
+//            return null;
+//        }
+//
+//        Cartds card;
+//        if ("ACTION".equals(cardDTO.getCardType())) {
+//            ActionCard actionCard = new ActionCard();
+//            actionCard.setActionCardId(cardDTO.getActionCardId());
+//            actionCard.setActionCartds(cardDTO.getActionCards());
+//            card = actionCard;
+//        } else if ("POINTS".equals(cardDTO.getCardType())) {
+//            PointsCard pointsCard = new PointsCard();
+//            pointsCard.setPointsCardId(cardDTO.getPointsCardId());
+//            card = pointsCard;
+//        } else {
+//            card = new Cartds();
+//        }
+//
+//        card.setCartId(cardDTO.getCartId());
+//        card.setValue(cardDTO.getValue());
+//        card.setCardName(cardDTO.getCartName());
+//        card.setQuantity(cardDTO.getQuantity());
+//        card.setUsers(mapIdsToUsers(cardDTO.getUserIds()));
+//
+//        return card;
+//    }
 
-    @Named("mapUsersToIds")
-    default List<UUID> mapUsersToIds(List<User> users) {
-        return users != null ? users.stream().map(User::getUserId).collect(Collectors.toList()) : null;
-    }
+    public abstract List<CartdsGetDTO> toCartdsGetDTOs(List<Cartds> cards);
 
-    @Named("mapIdsToUsers")
-    default List<User> mapIdsToUsers(List<UUID> userIds) {
-        return userIds != null ? userIds.stream().map(id -> {
-            User user = new User();
-            user.setUserId(id);
-            return user;
-        }).collect(Collectors.toList()) : null;
-    }
-
-    @Named("mapUsersToUserGetDTOs")
-    default List<UserGetDTO> mapUsersToUserGetDTOs(List<User> users) {
-        return users != null ? users.stream().map(user -> {
-            UserGetDTO dto = new UserGetDTO();
-            dto.setUserId(user.getUserId());
-            dto.setUsername(user.getName());
-            return dto;
-        }).collect(Collectors.toList()) : null;
-    }
-
-    @Named("mapActionCards")
-    default Set<TypesActionCartds> mapActionCards(Cartds cartds) {
-        if (cartds instanceof ActionCard) {
-            return ((ActionCard) cartds).getActionCartds();
-        }
-        return null;
-    }
-
-    @Named("mapActionCardId")
-    default Integer mapActionCardId(Cartds cartds) {
-        if (cartds instanceof ActionCard) {
-            return ((ActionCard) cartds).getActionCardId();
-        }
-        return null;
-    }
-
-    @Named("mapPointsCardId")
-    default Integer mapPointsCardId(Cartds cartds) {
-        if (cartds instanceof PointsCard) {
-            return ((PointsCard) cartds).getPointsCardId();
-        }
-        return null;
-    }
-
-    @AfterMapping
-    default void setCardType(@MappingTarget Cartds cartds, CartdsGetDTO cardDTO) {
-        if ("action".equals(cardDTO.getCardType())) {
-            ActionCard actionCard = (ActionCard) cartds;
-            actionCard.setActionCardId(cardDTO.getActionCardId());
-            actionCard.setActionCartds(cardDTO.getActionCards());
-        } else if ("points".equals(cardDTO.getCardType())) {
-            PointsCard pointsCard = (PointsCard) cartds;
-            pointsCard.setPointsCardId(cardDTO.getPointsCardId());
-        }
-    }
-
-    @Named("toActionCard")
-    default ActionCard toActionCard(CartdsGetDTO cardDTO) {
-        if ("action".equals(cardDTO.getCardType())) {
-            ActionCard card = new ActionCard();
-            card.setCartId(cardDTO.getCartId());
-            card.setValue(cardDTO.getValue());
-            card.setCartName(cardDTO.getCartName());
-            card.setQuantity(cardDTO.getQuantity());
-            card.setActionCardId(cardDTO.getActionCardId());
-            card.setActionCartds(cardDTO.getActionCards());
-            card.setUsers(mapIdsToUsers(cardDTO.getUserIds()));
-            return card;
-        }
-        return null;
-    }
-
-    @Named("toPointsCard")
-    default PointsCard toPointsCard(CartdsGetDTO cardDTO) {
-        if ("points".equals(cardDTO.getCardType())) {
-            PointsCard card = new PointsCard();
-            card.setCartId(cardDTO.getCartId());
-            card.setValue(cardDTO.getValue());
-            card.setCartName(cardDTO.getCartName());
-            card.setQuantity(cardDTO.getQuantity());
-            card.setPointsCardId(cardDTO.getPointsCardId());
-            card.setUsers(mapIdsToUsers(cardDTO.getUserIds()));
-            return card;
-        }
-        return null;
-    }
+    abstract List<Cartds> toCartdsList(List<CartdsGetDTO> cardDTOs);
 }

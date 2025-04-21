@@ -4,9 +4,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,20 +24,33 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Builder
+@Table(name = "users")
 public class User {
     @Id
     @GeneratedValue
+    @Column(name = "user_id")
     UUID userId;
-    @Column(nullable = false)
+
+    @Column(name = "name")
     String name;
+
+    @Column(name = "password")
     String password;
+
+    @Column(name = "login")
     String login;
+
     @ManyToMany
-    List<Cartds> cartds;
+    @JoinTable(
+            name = "user_cards",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "card_id")
+    )
+    List<Cartds> cartds = new ArrayList<>();
+
     @ManyToOne
+    @JoinColumn(name = "game_session_id")
     GameSession gameSession;
-//    Integer moves;
-//    Integer points;
-//    @ElementCollection
-//    List<Cartds> cartds;
+
 }
