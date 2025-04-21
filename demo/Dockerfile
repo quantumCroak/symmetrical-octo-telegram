@@ -1,11 +1,5 @@
-FROM ubuntu:latest
+FROM amazoncorretto:17-alpine-jdk
+WORKDIR /app
 LABEL authors="ekornilova"
-COPY target/card-game-0.0.1-SNAPSHOT.jar app.jar
-#ENTRYPOINT ["top", "-b"]
-ENTRYPOINT ["java", "-jar", "/app.jar"]
-
-#FROM openjdk:17-jdk-slim
-#WORKDIR /app
-#COPY target/your-app.jar app.jar
-#EXPOSE 8080
-#ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY target/cart-game-kokodi-0.0.1-SNAPSHOT.jar app.jar
+ENTRYPOINT ["java","-jar","/app/app.jar"]
