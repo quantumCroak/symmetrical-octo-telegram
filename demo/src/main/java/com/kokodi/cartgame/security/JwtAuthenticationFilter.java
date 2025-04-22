@@ -18,7 +18,7 @@ import java.util.ArrayList;
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private static final String SECRET = "sekretKey";
+    protected static  String SECRET = "sekretKey";
     private static final String TOKEN_PREFIX = "Bearer ";
     private static final String HEADER_STRING = "Authorization";
 

@@ -1,13 +1,13 @@
 package com.kokodi.cartgame.model.enums;
 
 public enum TypesActionCards {
-    BLOCK,// value = 1 - следующий игрок пропускает ход
-    STEAL,//value = N - активный игрок отнимает у выбранного соперника N очков
-    DOUBLE_DOWN,//value = 2 - активный игрок увеличивает в 2 раза свои очки
-    ATTACK,//Карта заставляет соперника сбросить 2 карты из руки или потерять 5 очков
-    DEFENSE,//отменяет эффект карты steal и attack
-    HEAL,//value = N Восстанавливает N очков
-    BAN,//Запрещает использование определённого типа карт на несколько ходов
-    EXTRA_TURN,//Дает игроку дополнительный ход
-    SHUFFLE//Все игроки сдают свои карты обратно и получают новые в случайном порядке.
+    BLOCK,
+    STEAL,
+    DOUBLE_DOWN,
+    ATTACK,
+    DEFENSE,
+    HEAL,
+    BAN,
+    EXTRA_TURN,
+    SHUFFLE
 }

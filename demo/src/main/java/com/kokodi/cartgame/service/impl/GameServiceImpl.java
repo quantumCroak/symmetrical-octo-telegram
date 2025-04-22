@@ -12,13 +12,13 @@ import com.kokodi.cartgame.model.dto.CardsGetDTO;
 import com.kokodi.cartgame.model.dto.GameSessionGetDTO;
 import com.kokodi.cartgame.model.dto.GameSessionCreateDTO;
 import com.kokodi.cartgame.model.dto.UserGetDTO;
-import com.kokodi.cartgame.model.enums.StatusSessionGame;
 import com.kokodi.cartgame.model.enums.TypesActionCards;
 import com.kokodi.cartgame.repository.GameRepository;
 import com.kokodi.cartgame.repository.UserRepository;
 import com.kokodi.cartgame.service.GameService;
 import com.kokodi.cartgame.util.exception.GameNotFoundException;
 import com.kokodi.cartgame.util.exception.GameNotInProgressException;
+import com.kokodi.cartgame.util.exception.InsufficientPlayersException;
 import com.kokodi.cartgame.util.exception.InvalidTargetForAttackException;
 import com.kokodi.cartgame.util.exception.InvalidTurnException;
 import com.kokodi.cartgame.util.exception.TargetUserRequiredForStealException;
@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 
 import static com.kokodi.cartgame.model.ActionCard.createActionCard;
 import static com.kokodi.cartgame.model.PointsCard.createPointsCard;
+import static com.kokodi.cartgame.model.enums.StatusSessionGame.*;
 import static com.kokodi.cartgame.model.enums.StatusSessionGame.FINISHED;
 import static com.kokodi.cartgame.model.enums.TypesActionCards.ATTACK;
 import static com.kokodi.cartgame.model.enums.TypesActionCards.BAN;
@@ -75,7 +76,7 @@ public class GameServiceImpl implements GameService {
 
             GameSession gameSession = new GameSession();
             gameSession.setGameSessionId(UUID.randomUUID());
-            gameSession.setStatusSessionGame(StatusSessionGame.WAIT_FOR_PLAYERS);
+            gameSession.setStatusSessionGame(WAIT_FOR_PLAYERS);
             gameSession.setUsers(new ArrayList<>(List.of(user)));
             gameSession.setPlayerScores(new HashMap<>());
             gameSession.getPlayerScores().put(userId, 0);
@@ -93,16 +94,15 @@ public class GameServiceImpl implements GameService {
 
     @Override
     @Transactional
-    public GameSessionGetDTO joinGameSession(UUID sessionId, UUID userId, String userName) throws GameNotFoundException, UserNotParticipantException {
-        GameSession gameSession = gameRepository.findById(sessionId)
-                .orElseThrow(() -> new GameNotFoundException("Game session not found"));
+    public GameSessionGetDTO joinGameSession(UUID sessionId, UUID userId, String userName) throws GameNotFoundException, UserNotParticipantException, InsufficientPlayersException {
+        GameSession gameSession = getById(sessionId);
 
-        if (gameSession.getStatusSessionGame() != StatusSessionGame.WAIT_FOR_PLAYERS) {
-            throw new IllegalStateException("Game session is not accepting new players");
+        if (gameSession.getStatusSessionGame() != WAIT_FOR_PLAYERS) {
+            throw new GameNotFoundException("Game session is not accepting new players");
         }
 
         if (gameSession.getUsers().size() < 2 || gameSession.getUsers().size() > 4) {
-            throw new IllegalStateException("Insufficient number of players");
+            throw new InsufficientPlayersException("Insufficient number of players");
         }
 
         boolean isAlreadyUsers = gameSession.getUsers().stream()
@@ -128,8 +128,7 @@ public class GameServiceImpl implements GameService {
     @Override
     @Transactional
     public GameSessionGetDTO getGameSession(UUID sessionId, String username) throws GameNotFoundException, UserNotParticipantException {
-        GameSession gameSession = gameRepository.findById(sessionId)
-                .orElseThrow(() -> new GameNotFoundException("Game session not found"));
+        GameSession gameSession = getById(sessionId);
 
         boolean isParticipant = gameSession.getUsers().stream()
                 .anyMatch(user -> user.getName().equals(username));
@@ -142,15 +141,14 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public GameSessionGetDTO startGame(UUID sessionId, List<UserGetDTO> users) throws GameNotFoundException {
-        GameSession gameSession = gameRepository.findById(sessionId)
-                .orElseThrow(() -> new GameNotFoundException("Game session not found"));
+        GameSession gameSession = getById(sessionId);
 
         List<Cards> cartds = new ArrayList<>();
         generateDeck(cartds);
         gameSession.setTurns(new ArrayList<>());
         gameSession.setPlayerScores(new java.util.HashMap<>());
         gameSession.setSkipTurns(0);
-        gameSession.setStatusSessionGame(StatusSessionGame.IN_PROGRESS);
+        gameSession.setStatusSessionGame(IN_PROGRESS);
 
 
         return gameSessionMapper.toGetDTO(gameSession);
@@ -172,10 +170,9 @@ public class GameServiceImpl implements GameService {
     @Transactional
     @Override
     public GameSessionGetDTO makeTurn(UUID sessionId, UUID userId, UUID targetUserId) throws GameNotFoundException, GameNotInProgressException, InvalidTurnException, TargetUserRequiredForStealException, InvalidTargetForAttackException, UserNotParticipantException {
-        GameSession gameSession = gameRepository.findById(sessionId)
-                .orElseThrow(() -> new GameNotFoundException("Game session not found"));
+        GameSession gameSession = getById(sessionId);
 
-        if (gameSession == null || gameSession.getStatusSessionGame() != StatusSessionGame.IN_PROGRESS) {
+        if (gameSession == null || gameSession.getStatusSessionGame() != IN_PROGRESS) {
             throw new GameNotInProgressException("Game is not in progress");
         }
 
@@ -192,7 +189,7 @@ public class GameServiceImpl implements GameService {
         }
 
         if (gameSession.getDeck().isEmpty()) {
-            gameSession.setStatusSessionGame(StatusSessionGame.FINISHED);
+            gameSession.setStatusSessionGame(FINISHED);
             gameRepository.save(gameSession);
             return gameSessionMapper.toGetDTO(gameSession);
         }
@@ -234,12 +231,12 @@ public class GameServiceImpl implements GameService {
         int newScore = currentScore + card.getValue();
         if (newScore >= 30) {
             newScore = 30;
-            gameSession.setStatusSessionGame(StatusSessionGame.FINISHED);
+            gameSession.setStatusSessionGame(FINISHED);
             log.info("Player {} has won the game!", userId);
         }
         gameSession.getPlayerScores().put(userId, newScore);
         turn.setAction("Gain " + card.getValue() + " points");
-        return gameSession.getStatusSessionGame() == StatusSessionGame.FINISHED;
+        return gameSession.getStatusSessionGame() == FINISHED;
     }
 
     private boolean isActionCard(GameSession gameSession, UUID userId, UUID targetUserId, ActionCard actionCard, Turns turn) throws InvalidTargetForAttackException, TargetUserRequiredForStealException, UserNotParticipantException {
@@ -276,7 +273,7 @@ public class GameServiceImpl implements GameService {
                 int doubledScore = gameSession.getPlayerScores().get(userId) * 2;
                 if (doubledScore >= 30) {
                     doubledScore = 30;
-                    gameSession.setStatusSessionGame(StatusSessionGame.FINISHED);
+                    gameSession.setStatusSessionGame(FINISHED);
                     log.info("Player {} has won the game!", userId);
                 }
                 gameSession.getPlayerScores().put(userId, doubledScore);
@@ -334,8 +331,7 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public GameSessionGetDTO getGameStatus(UUID sessionId) throws GameNotFoundException {
-        GameSession gameSession = gameRepository.findById(sessionId)
-                .orElseThrow(() -> new GameNotFoundException("Game session not found"));
+        GameSession gameSession = getById(sessionId);
 
         GameSessionGetDTO gameSessionGetDTO = gameSessionMapper.toGetDTO(gameSession);
 
@@ -361,6 +357,12 @@ public class GameServiceImpl implements GameService {
         gameSessionGetDTO.setNextPlayer(gameSession.getUsers().get(gameSession.getCurrentPlayerIndex()).getName());
 
         return gameSessionGetDTO;
+    }
+
+    @Override
+    public GameSession getById(UUID id) throws GameNotFoundException {
+        return gameRepository.findById(id)
+                .orElseThrow(() -> new GameNotFoundException("Сессия с таким id не найденa " + id));
     }
 
     private List<CardsGetDTO> generateDeck(List<Cards> cards) {

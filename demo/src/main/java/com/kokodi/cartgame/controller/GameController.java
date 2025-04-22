@@ -7,6 +7,7 @@ import com.kokodi.cartgame.model.dto.UserGetDTO;
 import com.kokodi.cartgame.service.GameService;
 import com.kokodi.cartgame.service.UserService;
 import com.kokodi.cartgame.util.exception.GameNotFoundException;
+import com.kokodi.cartgame.util.exception.InsufficientPlayersException;
 import com.kokodi.cartgame.util.exception.UserNotParticipantException;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.misc.NotNull;
@@ -44,7 +45,7 @@ public class GameController {
 
     @GetMapping("/{sessionId}/join")
     @ResponseStatus(HttpStatus.OK)
-    public GameSessionGetDTO joinSession(@PathVariable @NotNull UUID sessionId) throws UserNotParticipantException, GameNotFoundException {
+    public GameSessionGetDTO joinSession(@PathVariable @NotNull UUID sessionId) throws UserNotParticipantException, GameNotFoundException, InsufficientPlayersException {
         String login = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userService.findByLogin(login);
         return gameService.joinGameSession(sessionId, user.getUserId(), user.getName());
