@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -24,18 +23,18 @@ import java.util.List;
 @AllArgsConstructor
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
-@Table(name = "catds")
-public class Cartds {
+@Table(name = "cards")
+public class Cards {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "card_id")
-    Integer cartId;
+    protected Integer cardId;
     @Column(name = "value")
-    Integer value;
+    protected Integer value;
     @Column(name = "card_name")
-    String cardName;
+    protected String cardName;
     @Column(name = "quantity")
-    Integer quantity;
-    @ManyToMany(mappedBy = "cartds")
-    List<User> users = new ArrayList<>();
+    protected Integer quantity;
+    @ManyToMany(mappedBy = "cards")
+    protected List<User> users = new ArrayList<>();
 }

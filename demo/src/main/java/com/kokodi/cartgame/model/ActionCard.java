@@ -1,6 +1,6 @@
 package com.kokodi.cartgame.model;
 
-import com.kokodi.cartgame.model.enums.TypesActionCartds;
+import com.kokodi.cartgame.model.enums.TypesActionCards;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -22,23 +22,23 @@ import java.util.Set;
 @AllArgsConstructor
 @Entity
 @Table(name = "action_cartds")
-public class ActionCard extends Cartds{
+public class ActionCard extends Cards{
     @Column(name = "action_card_id")
-    int ActionCardId;
+    private int actionCardId;
 
     @ElementCollection
     @CollectionTable(name = "action_card_types", joinColumns = @JoinColumn(name = "action_card_id"))
     @Column(name = "action_type")
-    Set<TypesActionCartds> actionCartds;
+    private Set<TypesActionCards> actionCards;
 
-    public static ActionCard createActionCard(int actionCardId, String cartName, TypesActionCartds actionCartds, int value, int quantity) {
+    public static ActionCard createActionCard(int actionCardId, String cartName, TypesActionCards actionCards, int value, int quantity) {
         ActionCard card = new ActionCard();
-        card.setCartId(actionCardId);
+        card.setCardId(actionCardId);
         card.setCardName(cartName);
         card.setValue(value);
         card.setQuantity(quantity);
         card.setActionCardId(actionCardId);
-        card.setActionCartds(Collections.singleton(actionCartds));
+        card.setActionCards(Collections.singleton(actionCards));
         card.setUsers(new ArrayList<>());
         return card;
     }

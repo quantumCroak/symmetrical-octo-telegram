@@ -6,6 +6,9 @@ import com.kokodi.cartgame.model.dto.GameSessionGetDTO;
 import com.kokodi.cartgame.model.dto.UserGetDTO;
 import com.kokodi.cartgame.service.GameService;
 import com.kokodi.cartgame.service.UserService;
+import com.kokodi.cartgame.util.exception.GameNotFoundException;
+import com.kokodi.cartgame.util.exception.InsufficientPlayersException;
+import com.kokodi.cartgame.util.exception.UserNotParticipantException;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.springframework.http.HttpStatus;
@@ -42,7 +45,7 @@ public class GameController {
 
     @GetMapping("/{sessionId}/join")
     @ResponseStatus(HttpStatus.OK)
-    public GameSessionGetDTO joinSession(@PathVariable @NotNull UUID sessionId) {
+    public GameSessionGetDTO joinSession(@PathVariable @NotNull UUID sessionId) throws UserNotParticipantException, GameNotFoundException, InsufficientPlayersException {
         String login = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userService.findByLogin(login);
         return gameService.joinGameSession(sessionId, user.getUserId(), user.getName());
@@ -51,27 +54,27 @@ public class GameController {
     @PostMapping("/{sessionId}/start")
     @ResponseStatus(HttpStatus.OK)
     public GameSessionGetDTO startGame(@PathVariable @NotNull UUID sessionId,
-                                       @RequestBody List<UserGetDTO> users) {
+                                       @RequestBody List<UserGetDTO> users) throws GameNotFoundException {
         return gameService.startGame(sessionId, users);
     }
 
     @GetMapping("/{sessionId}")
     @ResponseStatus(HttpStatus.OK)
-    public GameSessionGetDTO getSession(@PathVariable @NotNull UUID sessionId) {
+    public GameSessionGetDTO getSession(@PathVariable @NotNull UUID sessionId) throws UserNotParticipantException, GameNotFoundException {
         String login = SecurityContextHolder.getContext().getAuthentication().getName();
         return gameService.getGameSession(sessionId, login);
     }
 
     @PostMapping("/{sessionId}/finish")
     @ResponseStatus(HttpStatus.OK)
-    public void finishSession(@PathVariable @NotNull UUID sessionId) {
+    public void finishSession(@PathVariable @NotNull UUID sessionId) throws UserNotParticipantException, GameNotFoundException {
         String login = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userService.findByLogin(login);
         gameService.finishGameSession(sessionId, new UserGetDTO(user.getUserId(), user.getName()));
     }
 
     @GetMapping("/{sessionId}/status")
-    public ResponseEntity<GameSessionGetDTO> getGameStatus(@RequestParam UUID sessionId) {
+    public ResponseEntity<GameSessionGetDTO> getGameStatus(@RequestParam UUID sessionId) throws GameNotFoundException {
         return ResponseEntity.ok(gameService.getGameStatus(sessionId));
     }
 }

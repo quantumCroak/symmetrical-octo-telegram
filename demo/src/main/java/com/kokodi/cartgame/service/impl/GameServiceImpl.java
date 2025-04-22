@@ -1,22 +1,30 @@
 package com.kokodi.cartgame.service.impl;
 
-import com.kokodi.cartgame.mapper.CartdsMapper;
+import com.kokodi.cartgame.mapper.CardsMapper;
 import com.kokodi.cartgame.mapper.GameSessionMapper;
 import com.kokodi.cartgame.model.ActionCard;
-import com.kokodi.cartgame.model.Cartds;
+import com.kokodi.cartgame.model.Cards;
 import com.kokodi.cartgame.model.GameSession;
 import com.kokodi.cartgame.model.PointsCard;
 import com.kokodi.cartgame.model.Turns;
 import com.kokodi.cartgame.model.User;
-import com.kokodi.cartgame.model.dto.CartdsGetDTO;
+import com.kokodi.cartgame.model.dto.CardsGetDTO;
 import com.kokodi.cartgame.model.dto.GameSessionGetDTO;
 import com.kokodi.cartgame.model.dto.GameSessionCreateDTO;
 import com.kokodi.cartgame.model.dto.UserGetDTO;
-import com.kokodi.cartgame.model.enums.StatusSessionGame;
-import com.kokodi.cartgame.model.enums.TypesActionCartds;
+import com.kokodi.cartgame.model.enums.TypesActionCards;
+import com.kokodi.cartgame.repository.GameRepository;
+import com.kokodi.cartgame.repository.UserRepository;
 import com.kokodi.cartgame.service.GameService;
-import jakarta.persistence.EntityManager;
+import com.kokodi.cartgame.util.exception.GameNotFoundException;
+import com.kokodi.cartgame.util.exception.GameNotInProgressException;
+import com.kokodi.cartgame.util.exception.InsufficientPlayersException;
+import com.kokodi.cartgame.util.exception.InvalidTargetForAttackException;
+import com.kokodi.cartgame.util.exception.InvalidTurnException;
+import com.kokodi.cartgame.util.exception.TargetUserRequiredForStealException;
+import com.kokodi.cartgame.util.exception.UserNotParticipantException;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -32,35 +40,31 @@ import java.util.stream.Collectors;
 
 import static com.kokodi.cartgame.model.ActionCard.createActionCard;
 import static com.kokodi.cartgame.model.PointsCard.createPointsCard;
+import static com.kokodi.cartgame.model.enums.StatusSessionGame.*;
 import static com.kokodi.cartgame.model.enums.StatusSessionGame.FINISHED;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.ATTACK;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.BAN;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.BLOCK;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.DEFENSE;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.DOUBLE_DOWN;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.EXTRA_TURN;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.HEAL;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.SHUFFLE;
-import static com.kokodi.cartgame.model.enums.TypesActionCartds.STEAL;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.ATTACK;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.BAN;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.BLOCK;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.DEFENSE;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.DOUBLE_DOWN;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.EXTRA_TURN;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.HEAL;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.SHUFFLE;
+import static com.kokodi.cartgame.model.enums.TypesActionCards.STEAL;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class GameServiceImpl implements GameService {
-    private final CartdsMapper cartdsMapper;
+    private final CardsMapper cardsMapper;
     private final GameSessionMapper gameSessionMapper;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final EntityManager entityManager;
+    private final GameRepository gameRepository;
+    private final UserRepository userRepository;
 
     private static Map<UUID, Boolean> defenseStatus = new HashMap<>();
-    private static Map<TypesActionCartds, Integer> bannedCards = new HashMap<>();
+    private static Map<TypesActionCards, Integer> bannedCards = new HashMap<>();
     private static List<UUID> extraTurns = new ArrayList<>();
-
-    public GameServiceImpl(CartdsMapper cartdsMapper, GameSessionMapper gameSessionMapper, RedisTemplate<String, Object> redisTemplate, EntityManager entityManager) {
-        this.cartdsMapper = cartdsMapper;
-        this.gameSessionMapper = gameSessionMapper;
-        this.redisTemplate = redisTemplate;
-        this.entityManager = entityManager;
-    }
 
     @Transactional
     public GameSessionCreateDTO createGameSession(UUID userId, String userName) {
@@ -68,15 +72,15 @@ public class GameServiceImpl implements GameService {
             User user = new User();
             user.setUserId(userId);
             user.setName(userName);
-            entityManager.persist(user);
+            userRepository.save(user);
 
             GameSession gameSession = new GameSession();
             gameSession.setGameSessionId(UUID.randomUUID());
-            gameSession.setStatusSessionGame(StatusSessionGame.WAID_FOR_PLAYERS);
+            gameSession.setStatusSessionGame(WAIT_FOR_PLAYERS);
             gameSession.setUsers(new ArrayList<>(List.of(user)));
             gameSession.setPlayerScores(new HashMap<>());
             gameSession.getPlayerScores().put(userId, 0);
-            entityManager.persist(gameSession);
+            gameRepository.save(gameSession);
 
             redisTemplate.opsForHash().put("game:" + gameSession.getGameSessionId(), "player:" + userId, 0);
             redisTemplate.opsForValue().set("game:" + gameSession.getGameSessionId() + ":code:" + userId, UUID.randomUUID().toString());
@@ -90,81 +94,74 @@ public class GameServiceImpl implements GameService {
 
     @Override
     @Transactional
-    public GameSessionGetDTO joinGameSession(UUID sessionId, UUID userId, String userName) {
-        GameSession gameSession = entityManager.find(GameSession.class, sessionId);
-        if (gameSession == null) {
-            throw new IllegalArgumentException("Game session not found");
-        }
+    public GameSessionGetDTO joinGameSession(UUID sessionId, UUID userId, String userName) throws GameNotFoundException, UserNotParticipantException, InsufficientPlayersException {
+        GameSession gameSession = getById(sessionId);
 
-        if (gameSession.getStatusSessionGame() != StatusSessionGame.WAID_FOR_PLAYERS) {
-            throw new IllegalStateException("Game session is not accepting new players");
+        if (gameSession.getStatusSessionGame() != WAIT_FOR_PLAYERS) {
+            throw new GameNotFoundException("Game session is not accepting new players");
         }
 
         if (gameSession.getUsers().size() < 2 || gameSession.getUsers().size() > 4) {
-            throw new IllegalStateException("Insufficient number of players");
+            throw new InsufficientPlayersException("Insufficient number of players");
         }
 
         boolean isAlreadyUsers = gameSession.getUsers().stream()
                 .anyMatch(user -> user.getUserId().equals(userId));
         if (isAlreadyUsers) {
-            throw new IllegalStateException("User is already a participant in this game session");
+            throw new UserNotParticipantException("User is already a participant in this game session");
         }
 
-        User user = entityManager.find(User.class, userId);
-        if (user == null) {
-            user = new User();
-            user.setUserId(userId);
-            user.setName(userName);
-            entityManager.persist(user);
-        }
+        User user = userRepository.findById(userId)
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setUserId(userId);
+                    newUser.setName(userName);
+                    return userRepository.save(newUser);
+                });
 
         gameSession.getUsers().add(user);
-        entityManager.merge(gameSession);
+        gameRepository.save(gameSession);
 
         return gameSessionMapper.toGetDTO(gameSession);
     }
 
     @Override
     @Transactional
-    public GameSessionGetDTO getGameSession(UUID sessionId, String username) {
-        GameSession gameSession = entityManager.find(GameSession.class, sessionId);
-        if (gameSession == null) {
-            throw new IllegalArgumentException("Game session not found");
-        }
+    public GameSessionGetDTO getGameSession(UUID sessionId, String username) throws GameNotFoundException, UserNotParticipantException {
+        GameSession gameSession = getById(sessionId);
 
         boolean isParticipant = gameSession.getUsers().stream()
                 .anyMatch(user -> user.getName().equals(username));
         if (!isParticipant) {
-            throw new IllegalStateException("User is not a participant of this game session");
+            throw new UserNotParticipantException("User is not a participant of this game session");
         }
 
         return gameSessionMapper.toGetDTO(gameSession);
     }
 
     @Override
-    public GameSessionGetDTO startGame(UUID sessionId, List<UserGetDTO> users) {
-        GameSession gameSession = entityManager.find(GameSession.class, sessionId);
-        if (gameSession == null) {
-            throw new IllegalArgumentException("Game session not found");
-        }
-        List<Cartds> cartds = new ArrayList<>();
+    public GameSessionGetDTO startGame(UUID sessionId, List<UserGetDTO> users) throws GameNotFoundException {
+        GameSession gameSession = getById(sessionId);
+
+        List<Cards> cartds = new ArrayList<>();
         generateDeck(cartds);
         gameSession.setTurns(new ArrayList<>());
         gameSession.setPlayerScores(new java.util.HashMap<>());
         gameSession.setSkipTurns(0);
-        gameSession.setStatusSessionGame(StatusSessionGame.IN_PROGRESS);
+        gameSession.setStatusSessionGame(IN_PROGRESS);
 
 
         return gameSessionMapper.toGetDTO(gameSession);
     }
 
     @Override
-    public void finishGameSession(UUID sessionId, UserGetDTO user) {
+    public void finishGameSession(UUID sessionId, UserGetDTO user) throws GameNotFoundException, UserNotParticipantException {
         log.info("Finished game session {}", sessionId);
         GameSessionGetDTO gameSession = getGameSession(sessionId, user.getUsername());
         gameSession.setStatusSessionGame(FINISHED);
         gameSession.setDeck(null);
-        entityManager.merge(gameSession);
+        GameSession entity = gameSessionMapper.toEntity(gameSession);
+        gameRepository.save(entity);
 
         redisTemplate.delete("game:" + sessionId);
         gameSession.getUsers().forEach(u -> redisTemplate.delete("game:" + sessionId + ":code:" + u.getUserId()));
@@ -172,31 +169,32 @@ public class GameServiceImpl implements GameService {
 
     @Transactional
     @Override
-    public GameSessionGetDTO makeTurn(UUID sessionId, UUID userId, UUID targetUserId) {
-        GameSession gameSession = entityManager.find(GameSession.class, sessionId);
-        if (gameSession == null || gameSession.getStatusSessionGame() != StatusSessionGame.IN_PROGRESS) {
-            throw new IllegalStateException("Game is not in progress");
+    public GameSessionGetDTO makeTurn(UUID sessionId, UUID userId, UUID targetUserId) throws GameNotFoundException, GameNotInProgressException, InvalidTurnException, TargetUserRequiredForStealException, InvalidTargetForAttackException, UserNotParticipantException {
+        GameSession gameSession = getById(sessionId);
+
+        if (gameSession == null || gameSession.getStatusSessionGame() != IN_PROGRESS) {
+            throw new GameNotInProgressException("Game is not in progress");
         }
 
         if (!gameSession.getUsers().get(gameSession.getCurrentPlayerIndex()).getUserId().equals(userId)) {
-            throw new IllegalStateException("Not your turn");
+            throw new InvalidTurnException("Not your turn");
         }
 
         if (gameSession.getSkipTurns() > 0) {
             gameSession.setSkipTurns(gameSession.getSkipTurns() - 1);
             gameSession.setCurrentPlayerIndex((gameSession.getCurrentPlayerIndex() + 1) % gameSession.getUsers().size());
-            entityManager.merge(gameSession);
+            gameRepository.save(gameSession);
             redisTemplate.opsForValue().set("game:" + sessionId + ":skipTurns", gameSession.getSkipTurns());
             return gameSessionMapper.toGetDTO(gameSession);
         }
 
         if (gameSession.getDeck().isEmpty()) {
-            gameSession.setStatusSessionGame(StatusSessionGame.FINISHED);
-            entityManager.merge(gameSession);
+            gameSession.setStatusSessionGame(FINISHED);
+            gameRepository.save(gameSession);
             return gameSessionMapper.toGetDTO(gameSession);
         }
 
-        Cartds card = gameSession.getDeck().remove(0);
+        Cards card = gameSession.getDeck().remove(0);
         Turns turn = new Turns();
         turn.setActiveUserId(userId);
         turn.setGameSession(gameSession);
@@ -219,7 +217,7 @@ public class GameServiceImpl implements GameService {
             deactivateDefense(userId);
         }
 
-        entityManager.merge(gameSession);
+        gameRepository.save(gameSession);
 
         gameSession.getPlayerScores().forEach((id, score) ->
                 redisTemplate.opsForHash().put("game:" + sessionId, "player:" + id, score));
@@ -228,115 +226,112 @@ public class GameServiceImpl implements GameService {
         return gameSessionMapper.toGetDTO(gameSession);
     }
 
-    private boolean isPointsCard (GameSession gameSession, UUID userId, Cartds card, Turns turn) {
+    private boolean isPointsCard(GameSession gameSession, UUID userId, Cards card, Turns turn) {
         int currentScore = gameSession.getPlayerScores().get(userId);
         int newScore = currentScore + card.getValue();
         if (newScore >= 30) {
             newScore = 30;
-            gameSession.setStatusSessionGame(StatusSessionGame.FINISHED);
+            gameSession.setStatusSessionGame(FINISHED);
             log.info("Player {} has won the game!", userId);
         }
         gameSession.getPlayerScores().put(userId, newScore);
         turn.setAction("Gain " + card.getValue() + " points");
-        return gameSession.getStatusSessionGame() == StatusSessionGame.FINISHED;
+        return gameSession.getStatusSessionGame() == FINISHED;
     }
 
-    private boolean isActionCard (GameSession gameSession, UUID userId, UUID targetUserId, ActionCard actionCard, Turns turn) {
-        TypesActionCartds actionType = actionCard.getActionCartds().iterator().next();
+    private boolean isActionCard(GameSession gameSession, UUID userId, UUID targetUserId, ActionCard actionCard, Turns turn) throws InvalidTargetForAttackException, TargetUserRequiredForStealException, UserNotParticipantException {
+        TypesActionCards actionType = actionCard.getActionCards().iterator().next();
         if (isCardTypeBanned(actionType)) {
             turn.setAction("Action " + actionType + " is banned");
             return true;
         }
 
         if (targetUserId != null && gameSession.getUsers().stream().noneMatch(u -> u.getUserId().equals(targetUserId))) {
-            throw new IllegalArgumentException("Target user not in game session");
+            throw new UserNotParticipantException("Target user not in game session");
         }
 
         switch (actionType) {
-        case BLOCK:
-            gameSession.setSkipTurns(1);
-            turn.setAction("Block next turn");
-            break;
-        case STEAL:
-            if (targetUserId == null) {
-                throw new IllegalArgumentException("Target user required for steal");
-            }
-            if (isDefended(targetUserId)) {
-                turn.setAction("Steal blocked by defense for user " + targetUserId);
+            case BLOCK:
+                gameSession.setSkipTurns(1);
+                turn.setAction("Block next turn");
                 break;
-            }
-            int targetScore = gameSession.getPlayerScores().get(targetUserId);
-            int stolen = Math.min(actionCard.getValue(), targetScore);
-            gameSession.getPlayerScores().put(targetUserId, targetScore - stolen);
-            gameSession.getPlayerScores().put(userId, gameSession.getPlayerScores().get(userId) + stolen);
-            turn.setAction("Steal " + stolen + " from user " + targetUserId);
-            break;
-        case DOUBLE_DOWN:
-            int doubledScore = gameSession.getPlayerScores().get(userId) * 2;
-            if (doubledScore >= 30) {
-                doubledScore = 30;
-                gameSession.setStatusSessionGame(StatusSessionGame.FINISHED);
-                log.info("Player {} has won the game!", userId);
-            }
-            gameSession.getPlayerScores().put(userId, doubledScore);
-            turn.setAction("Double down");
-            break;
-        case ATTACK:
-            if (targetUserId == null || targetUserId.equals(userId)) {
-                throw new IllegalArgumentException("Invalid target for attack");
-            }
-            if (isDefended(targetUserId)) {
-                turn.setAction("Attack blocked by defense for user " + targetUserId);
+            case STEAL:
+                if (targetUserId == null) {
+                    throw new TargetUserRequiredForStealException("Target user required for steal");
+                }
+                if (isDefended(targetUserId)) {
+                    turn.setAction("Steal blocked by defense for user " + targetUserId);
+                    break;
+                }
+                int targetScore = gameSession.getPlayerScores().get(targetUserId);
+                int stolen = Math.min(actionCard.getValue(), targetScore);
+                gameSession.getPlayerScores().put(targetUserId, targetScore - stolen);
+                gameSession.getPlayerScores().put(userId, gameSession.getPlayerScores().get(userId) + stolen);
+                turn.setAction("Steal " + stolen + " from user " + targetUserId);
                 break;
-            }
-            targetScore = gameSession.getPlayerScores().get(targetUserId);
-            int attack = Math.min(actionCard.getValue(), targetScore);
-            gameSession.getPlayerScores().put(targetUserId, targetScore - attack);
-            turn.setAction("Attack user " + targetUserId + " for " + attack + " points");
-            break;
-        case DEFENSE:
-            activateDefense(userId);
-            turn.setAction("Activate defense for user " + userId);
-            break;
+            case DOUBLE_DOWN:
+                int doubledScore = gameSession.getPlayerScores().get(userId) * 2;
+                if (doubledScore >= 30) {
+                    doubledScore = 30;
+                    gameSession.setStatusSessionGame(FINISHED);
+                    log.info("Player {} has won the game!", userId);
+                }
+                gameSession.getPlayerScores().put(userId, doubledScore);
+                turn.setAction("Double down");
+                break;
+            case ATTACK:
+                if (targetUserId == null || targetUserId.equals(userId)) {
+                    throw new InvalidTargetForAttackException("Invalid target for attack");
+                }
+                if (isDefended(targetUserId)) {
+                    turn.setAction("Attack blocked by defense for user " + targetUserId);
+                    break;
+                }
+                targetScore = gameSession.getPlayerScores().get(targetUserId);
+                int attack = Math.min(actionCard.getValue(), targetScore);
+                gameSession.getPlayerScores().put(targetUserId, targetScore - attack);
+                turn.setAction("Attack user " + targetUserId + " for " + attack + " points");
+                break;
+            case DEFENSE:
+                activateDefense(userId);
+                turn.setAction("Activate defense for user " + userId);
+                break;
 
-        case HEAL:
-            int healAmount = actionCard.getValue();
-            int currentScore = gameSession.getPlayerScores().get(userId);
-            int newScore = Math.min(currentScore + healAmount, 30);
-            gameSession.getPlayerScores().put(userId, newScore);
-            turn.setAction("Heal user " + userId + " for " + healAmount + " points");
-            break;
+            case HEAL:
+                int healAmount = actionCard.getValue();
+                int currentScore = gameSession.getPlayerScores().get(userId);
+                int newScore = Math.min(currentScore + healAmount, 30);
+                gameSession.getPlayerScores().put(userId, newScore);
+                turn.setAction("Heal user " + userId + " for " + healAmount + " points");
+                break;
 
-        case BAN:
-            TypesActionCartds bannedType = TypesActionCartds.ATTACK;
-            int banTurns = actionCard.getValue();
-            banCardType(bannedType, banTurns);
-            turn.setAction("Ban " + bannedType + " cards for " + banTurns + " turns");
-            break;
+            case BAN:
+                TypesActionCards bannedType = TypesActionCards.ATTACK;
+                int banTurns = actionCard.getValue();
+                banCardType(bannedType, banTurns);
+                turn.setAction("Ban " + bannedType + " cards for " + banTurns + " turns");
+                break;
 
-        case EXTRA_TURN:
-            setExtraTurnForPlayer(userId);
-            turn.setAction("Grant extra turn to user " + userId);
-            break;
+            case EXTRA_TURN:
+                setExtraTurnForPlayer(userId);
+                turn.setAction("Grant extra turn to user " + userId);
+                break;
 
-        case SHUFFLE:
-            for (User player : gameSession.getUsers()) {
-                Collections.shuffle(player.getCartds());
-            }
-            turn.setAction("Shuffle all players' cartds");
-            break;
-        default:
-            throw new UnsupportedOperationException("Action not implemented: " + actionCard.getActionCartds());
+            case SHUFFLE:
+                for (User player : gameSession.getUsers()) {
+                    Collections.shuffle(player.getCards());
+                }
+                turn.setAction("Shuffle all players' cartds");
+                break;
+            default:
+                throw new UnsupportedOperationException("Action not implemented: " + actionCard.getActionCards());
+        }
+        return false;
     }
-    return false;
-}
 
     @Override
-    public GameSessionGetDTO getGameStatus(UUID sessionId) throws IllegalStateException {
-        GameSession gameSession = entityManager.find(GameSession.class, sessionId);
-        if (gameSession == null) {
-            throw new IllegalArgumentException("Game session not found");
-        }
+    public GameSessionGetDTO getGameStatus(UUID sessionId) throws GameNotFoundException {
+        GameSession gameSession = getById(sessionId);
 
         GameSessionGetDTO gameSessionGetDTO = gameSessionMapper.toGetDTO(gameSession);
 
@@ -364,24 +359,30 @@ public class GameServiceImpl implements GameService {
         return gameSessionGetDTO;
     }
 
-    private List<CartdsGetDTO> generateDeck(List<Cartds> cartds) {
-        cartds.add(createPointsCard(1, "Points3", 3, 4));
-        cartds.add(createPointsCard(2, "Points5", 5, 4));
-        cartds.add(createPointsCard(3, "Points7", 7, 2));
+    @Override
+    public GameSession getById(UUID id) throws GameNotFoundException {
+        return gameRepository.findById(id)
+                .orElseThrow(() -> new GameNotFoundException("Сессия с таким id не найденa " + id));
+    }
 
-        cartds.add(createActionCard(4, "Block", BLOCK, 1, 2));
-        cartds.add(createActionCard(5, "Steal", STEAL, 4, 2));
-        cartds.add(createActionCard(6, "DoubleDown", DOUBLE_DOWN, 2, 1));
-        cartds.add(createActionCard(7, "Attack", ATTACK, 5, 2));
-        cartds.add(createActionCard(8, "Defense", DEFENSE, 0, 2));
-        cartds.add(createActionCard(9, "Heal", HEAL, 5, 2));
-        cartds.add(createActionCard(10, "Ban", BAN, 1, 1));
-        cartds.add(createActionCard(11, "ExtraTurn", EXTRA_TURN, 1, 1));
-        cartds.add(createActionCard(13, "Shuffle", SHUFFLE, 0, 1));
+    private List<CardsGetDTO> generateDeck(List<Cards> cards) {
+        cards.add(createPointsCard(1, "Points3", 3, 4));
+        cards.add(createPointsCard(2, "Points5", 5, 4));
+        cards.add(createPointsCard(3, "Points7", 7, 2));
 
-        Collections.shuffle(cartds);
+        cards.add(createActionCard(4, "Block", BLOCK, 1, 2));
+        cards.add(createActionCard(5, "Steal", STEAL, 4, 2));
+        cards.add(createActionCard(6, "DoubleDown", DOUBLE_DOWN, 2, 1));
+        cards.add(createActionCard(7, "Attack", ATTACK, 5, 2));
+        cards.add(createActionCard(8, "Defense", DEFENSE, 0, 2));
+        cards.add(createActionCard(9, "Heal", HEAL, 5, 2));
+        cards.add(createActionCard(10, "Ban", BAN, 1, 1));
+        cards.add(createActionCard(11, "ExtraTurn", EXTRA_TURN, 1, 1));
+        cards.add(createActionCard(13, "Shuffle", SHUFFLE, 0, 1));
 
-        return cartdsMapper.toCartdsGetDTOs(cartds);
+        Collections.shuffle(cards);
+
+        return cardsMapper.toCardsGetDTOs(cards);
     }
 
     private static boolean isDefended(UUID userId) {
@@ -396,11 +397,11 @@ public class GameServiceImpl implements GameService {
         defenseStatus.put(userId, false);
     }
 
-    private static void banCardType(TypesActionCartds type, int turns) {
+    private static void banCardType(TypesActionCards type, int turns) {
         bannedCards.put(type, turns);
     }
 
-    private static boolean isCardTypeBanned(TypesActionCartds type) {
+    private static boolean isCardTypeBanned(TypesActionCards type) {
         return bannedCards.getOrDefault(type, 0) > 0;
     }
 

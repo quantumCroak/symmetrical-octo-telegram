@@ -1,7 +1,6 @@
 package com.kokodi.cartgame.model;
 
 import com.kokodi.cartgame.model.enums.StatusSessionGame;
-import com.kokodi.cartgame.model.enums.TypesActionCartds;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -23,7 +22,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +36,7 @@ public class GameSession {
     @Id
     @GeneratedValue
     @Column(name = "game_session_id")
-    UUID gameSessionId;
+    private UUID gameSessionId;
 
     @ManyToMany
     @JoinTable(
@@ -46,7 +44,7 @@ public class GameSession {
             joinColumns = @JoinColumn(name = "game_session_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    List<User> users;
+    private List<User> users;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status_session_game")
@@ -71,7 +69,7 @@ public class GameSession {
             joinColumns = @JoinColumn(name = "game_session_id"),
             inverseJoinColumns = @JoinColumn(name = "card_id")
     )
-    List<Cartds> deck = new ArrayList<>();
+    List<Cards> deck = new ArrayList<>();
 
     @Column(name = "current_player_index")
     int currentPlayerIndex;

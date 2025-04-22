@@ -17,7 +17,7 @@ import java.util.UUID;
 public class GameSessionGetDTO {
     UUID sessionId;
     List<UserGetDTO> users;
-    List<CartdsGetDTO> deck;
+    List<CardsGetDTO> deck;
     StatusSessionGame statusSessionGame;
     private Map<UUID, Integer> playerScores;
     private int deckSize;

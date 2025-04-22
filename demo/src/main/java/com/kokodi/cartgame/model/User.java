@@ -30,16 +30,16 @@ public class User {
     @Id
     @GeneratedValue
     @Column(name = "user_id")
-    UUID userId;
+    private UUID userId;
 
     @Column(name = "name")
-    String name;
+    private String name;
 
     @Column(name = "password")
-    String password;
+    private String password;
 
     @Column(name = "login")
-    String login;
+    private String login;
 
     @ManyToMany
     @JoinTable(
@@ -47,10 +47,14 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "card_id")
     )
-    List<Cartds> cartds = new ArrayList<>();
+    private List<Cards> cards = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "game_session_id")
-    GameSession gameSession;
+    private GameSession gameSession;
 
+    public User(UUID userId, String userName) {
+        this.userId = userId;
+        this.name = userName;
+    }
 }
