@@ -11,8 +11,8 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class CartdsCreateDTO {
-    UUID cartId;
+public class CardsCreateDTO {
+    UUID cardId;
     Integer quantity;
     Integer value;
 }

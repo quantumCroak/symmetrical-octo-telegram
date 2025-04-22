@@ -2,7 +2,6 @@ package com.kokodi.cartgame.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,14 +16,14 @@ import java.util.ArrayList;
 @AllArgsConstructor
 @Entity
 @Table(name = "points_cards")
-public class PointsCard extends Cartds{
+public class PointsCard extends Cards{
     @Column(name = "points_card_id")
-    int pointsCardId;
+    private int pointsCardId;
 
-    public static PointsCard createPointsCard(int pointsCardId, String cartName, int value, int quantity) {
+    public static PointsCard createPointsCard(int pointsCardId, String cardName, int value, int quantity) {
         PointsCard card = new PointsCard();
-        card.setCartId(pointsCardId);
-        card.setCardName(cartName);
+        card.setCardId(pointsCardId);
+        card.setCardName(cardName);
         card.setValue(value);
         card.setQuantity(quantity);
         card.setPointsCardId(pointsCardId);

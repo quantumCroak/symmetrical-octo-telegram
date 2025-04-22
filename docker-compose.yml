@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     ports:
-      - "8080:8080"
+      - "8090:8090"
     depends_on:
       - postgres
       - redis

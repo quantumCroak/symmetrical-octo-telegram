@@ -1,6 +1,6 @@
 package com.kokodi.cartgame.model.enums;
 
-public enum TypesActionCartds {
+public enum TypesActionCards {
     BLOCK,// value = 1 - следующий игрок пропускает ход
     STEAL,//value = N - активный игрок отнимает у выбранного соперника N очков
     DOUBLE_DOWN,//value = 2 - активный игрок увеличивает в 2 раза свои очки
